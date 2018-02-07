@@ -12,6 +12,9 @@ import logging
 import tensorflow as tf
 import util
 from layers import (weight_variable, weight_variable_devonc, conv3d, pixel_wise_softmax_2, cross_entropy)
+import sys
+sys.path.append('../')
+from ssim import tf_SSIM
 
 def create_conv_net(x, channels=1, layers=4, growth_rate=24, filter_size=3, summaries=True):
     """
@@ -86,80 +89,39 @@ class DCSRN(object):
     A dcsrn implementation
     
     :param channels: (optional) number of channels in the input image
-    :param n_class: (optional) number of output labels
-    :param cost: (optional) name of the cost function. Default is 'cross_entropy'
-    :param cost_kwargs: (optional) kwargs passed to the cost function. See Unet._get_cost for more options
     """
     
-    def __init__(self, channels=1, cost_kwargs={}, **kwargs):
+    def __init__(self, channels=1, **kwargs):
         tf.reset_default_graph()
         
         self.summaries = kwargs.get("summaries", True)
+        # x is LR image, y is HR image
+        self.x = tf.placeholder("float", shape=[None, None, None, None, channels])
+        self.y = tf.placeholder("float", shape=[None, None, None, None, channels])
+        logits, self.variables = create_conv_net(self.x, channels = channels)
         
-        self.x = tf.placeholder("float", shape=[None, None, None, channels])
-        
-        logits, self.variables = create_conv_net(self.x, channels)
-        
-        self.cost = tf.reduce_sum(tf.pow(logits - self.x, 2))/(n_instances)
-        
-        self.gradients_node = tf.gradients(self.cost, self.variables)
-        
-        self.predicter = pixel_wise_softmax_2(logits)
-        self.correct_pred = tf.equal(tf.argmax(self.predicter, 3), tf.argmax(self.y, 3))
-        self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
-        
-    def _get_cost(self, logits, cost_name, cost_kwargs):
-        """
-        Constructs the cost function, either cross_entropy, weighted cross_entropy or dice_coefficient.
-        Optional arguments are: 
-        class_weights: weights for the different classes in case of multi-class imbalance
-        regularizer: power of the L2 regularizers added to the loss function
-        """
-        
-        flat_logits = tf.reshape(logits, [-1, self.n_class])
-        flat_labels = tf.reshape(self.y, [-1, self.n_class])
-        if cost_name == "cross_entropy":
-            class_weights = cost_kwargs.pop("class_weights", None)
-            
-            if class_weights is not None:
-                class_weights = tf.constant(np.array(class_weights, dtype=np.float32))
-        
-                weight_map = tf.multiply(flat_labels, class_weights)
-                weight_map = tf.reduce_sum(weight_map, axis=1)
-        
-                loss_map = tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits,
-                                                                   labels=flat_labels)
-                weighted_loss = tf.multiply(loss_map, weight_map)
-        
-                loss = tf.reduce_mean(weighted_loss)
+        instance_number = logits.get_shape()[0] * logits.get_shape()[1] * logits.get_shape()[2] * logits.get_shape()[3]
+        # L2 loss (Mean squared error)
+        self.cost = tf.reduce_sum(tf.pow(logits - self.y, 2)) / instance_number
                 
-            else:
-                loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=flat_logits, 
-                                                                              labels=flat_labels))
-
-        return loss
-
-    def predict(self, model_path, x_test):
+        self.mean_ssim = 0
+        batch_size = logits.get_shape()[0]
+        slice_number = logits.get_shape()[1]
+        num = batch_size * slice_number
+        for i in range(0, batch_size):
+            for j in range(0, slice_number):
+                self.mean_ssim += self._get_ssim(logits[i, j:j+1, :, :, :], self.y[i, j:j+1, :, :, :]) / num
+        
+    def _get_ssim(self, result, hr_image):
         """
-        Uses the model to create a prediction for the given data
-        
-        :param model_path: path to the model checkpoint to restore
-        :param x_test: Data to predict on. Shape [n, nx, ny, channels]
-        :returns prediction: The unet prediction Shape [n, px, py, labels] (px=nx-self.offset/2) 
+        Constructs the SSIM index, which measures the similarity of 2 input images
+
+        :param result: final result generated from the low resolution image
+        :param hr_image: high resolution image, serves as ground truth 
         """
-        
-        init = tf.global_variables_initializer()
-        with tf.Session() as sess:
-            # Initialize variables
-            sess.run(init)
-        
-            # Restore model weights from previously saved model
-            self.restore(sess, model_path)
-            
-            y_dummy = np.empty((x_test.shape[0], x_test.shape[1], x_test.shape[2], self.n_class))
-            prediction = sess.run(self.predicter, feed_dict={self.x: x_test, self.y: y_dummy, self.keep_prob: 1.})
-            
-        return prediction
+        ssim_result = tf_SSIM.tf_ssim(result, hr_image)
+
+        return ssim_result
     
     def save(self, sess, model_path):
         """
@@ -184,3 +146,148 @@ class DCSRN(object):
         saver = tf.train.Saver()
         saver.restore(sess, model_path)
         logging.info("Model restored from file: %s" % model_path)
+
+
+class Trainer(object):
+    """
+    Trains a dcsrn instance
+    
+    :param net: the dcsrn instance to train
+    :param batch_size: size of training batch
+    :param optimizer: (optional) name of the optimizer to use (default adam)
+    :param opt_kwargs: (optional) kwargs passed to the learning rate (momentum opt) and to the optimizer
+    
+    """
+    
+    verification_batch_size = 1
+    
+    def __init__(self, net, batch_size=2, optimizer="adam", opt_kwargs={}):
+        self.net = net
+        self.batch_size = batch_size
+        self.optimizer = optimizer
+        self.opt_kwargs = opt_kwargs
+        
+    def _get_optimizer(self, training_iters, global_step):
+        if self.optimizer == "adam":
+            learning_rate = self.opt_kwargs.pop("learning_rate", 0.00001)
+            self.learning_rate_node = tf.Variable(learning_rate)
+            
+            optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_node, 
+                                               **self.opt_kwargs).minimize(self.net.cost,
+                                                                     global_step=global_step)
+        
+        return optimizer
+        
+    def _initialize(self, training_iters, output_path, restore, prediction_path):
+        global_step = tf.Variable(0)
+                
+        tf.summary.scalar('loss', self.net.cost)
+        tf.summary.scalar('mean ssim', self.net.mean_ssim)
+
+        self.optimizer = self._get_optimizer(training_iters, global_step)
+        tf.summary.scalar('learning_rate', self.learning_rate_node)
+
+        self.summary_op = tf.summary.merge_all()        
+        init = tf.global_variables_initializer()
+        
+        self.prediction_path = prediction_path
+        abs_prediction_path = os.path.abspath(self.prediction_path)
+        output_path = os.path.abspath(output_path)
+        
+        if not restore:
+            logging.info("Removing '{:}'".format(abs_prediction_path))
+            shutil.rmtree(abs_prediction_path, ignore_errors=True)
+            logging.info("Removing '{:}'".format(output_path))
+            shutil.rmtree(output_path, ignore_errors=True)
+        
+        if not os.path.exists(abs_prediction_path):
+            logging.info("Allocating '{:}'".format(abs_prediction_path))
+            os.makedirs(abs_prediction_path)
+        
+        if not os.path.exists(output_path):
+            logging.info("Allocating '{:}'".format(output_path))
+            os.makedirs(output_path)
+        
+        return init
+
+    def train(self, data_provider, output_path, training_iters=3500, epochs=10, display_step=1, restore=False, write_graph=False, prediction_path = 'prediction'):
+        """
+        Lauches the training process
+        
+        :param data_provider: callable returning training and verification data
+        :param output_path: path where to store checkpoints
+        :param training_iters: number of training mini batch iteration
+        :param epochs: number of epochs
+        :param display_step: number of steps till outputting stats
+        :param restore: Flag if previous model should be restored 
+        :param write_graph: Flag if the computation graph should be written as protobuf file to the output path
+        :param prediction_path: path where to save predictions on each epoch
+        """
+        save_path = os.path.join(output_path, "model.cpkt")
+        if epochs == 0:
+            return save_path
+        
+        init = self._initialize(training_iters, output_path, restore, prediction_path)
+        
+        with tf.Session() as sess:
+            if write_graph:
+                tf.train.write_graph(sess.graph_def, output_path, "graph.pb", False)
+            
+            sess.run(init)
+            
+            if restore:
+                ckpt = tf.train.get_checkpoint_state(output_path)
+                if ckpt and ckpt.model_checkpoint_path:
+                    self.net.restore(sess, ckpt.model_checkpoint_path)
+            
+            test_x, test_y = data_provider(self.verification_batch_size)
+            # TODO change prediction way 
+            self.store_prediction(sess, test_x, test_y, "_init")
+            
+            summary_writer = tf.summary.FileWriter(output_path, graph=sess.graph)
+            logging.info("Start optimization")
+            
+            for epoch in range(epochs):
+                total_loss = 0
+                for step in range((epoch*training_iters), ((epoch+1)*training_iters)):
+                    batch_x, batch_y = data_provider(self.batch_size)
+                     
+                    # Run optimization op (backprop)
+                    _, loss, lr = sess.run((self.optimizer, self.net.cost, self.learning_rate_node), 
+                                                      feed_dict={self.net.x: batch_x,
+                                                                 self.net.y: batch_y})
+                    
+                    if step % display_step == 0:
+                        self.output_minibatch_stats(sess, summary_writer, step, batch_x, batch_y)
+                        
+                    total_loss += loss
+                self.output_epoch_stats(epoch, total_loss, training_iters, lr)
+                self.store_prediction(sess, test_x, test_y, "epoch_%s"%epoch)
+                    
+                save_path = self.net.save(sess, save_path)
+            logging.info("Optimization Finished!")
+            
+            return save_path
+        
+    def store_prediction(self, sess, batch_x, batch_y, name):
+        loss, ssim = sess.run((self.net.cost, self.net.mean_ssim), feed_dict={self.net.x: batch_x, 
+                                                                                self.net.y: batch_y})
+        logging.info("***********Begin testing**************")                                                                                
+        logging.info("Testing data: Average L2 loss: {:.4f}, Average SSIM: {:.4f}, learning rate: {:.4f}".format(loss, ssim, lr))
+            
+    def output_epoch_stats(self, epoch, total_loss, training_iters, lr):
+        logging.info("\n")
+        logging.info("Epoch {:}, Average loss: {:.4f}, learning rate: {:.4f}".format(epoch, (total_loss / training_iters), lr))
+    
+    def output_minibatch_stats(self, sess, summary_writer, step, batch_x, batch_y):
+        # Calculate batch loss and accuracy
+        summary_str, loss, ssim = sess.run([self.summary_op, 
+                                            self.net.cost,
+                                            self.net.mean_ssim], 
+                                            feed_dict={self.net.x: batch_x,
+                                                        self.net.y: batch_y})
+        summary_writer.add_summary(summary_str, step)
+        summary_writer.flush()
+        logging.info("Iter {:}, Minibatch Loss= {:.4f}, Training SSIM= {:.4f}".format(step,
+                                                                                      loss,
+                                                                                      ssim))

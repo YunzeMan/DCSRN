@@ -1,30 +1,23 @@
 import sys
-import numpy
+import numpy as np
 from scipy import signal
 from scipy import ndimage
 
 
 def gaussian2(size, sigma):
-    A = 1/(2.0*numpy.pi*sigma**2)
-    x, y = numpy.mgrid[-size//2 + 1:size//2 + 1, -size//2 + 1:size//2 + 1]
-    g = A*numpy.exp(-((x**2/(2.0*sigma**2))+(y**2/(2.0*sigma**2))))
+    A = 1/(2.0*np.pi*sigma**2)
+    x, y = np.mgrid[-size//2 + 1:size//2 + 1, -size//2 + 1:size//2 + 1]
+    g = A*np.exp(-((x**2/(2.0*sigma**2))+(y**2/(2.0*sigma**2))))
     return g
 
 def fspecial_gauss(size, sigma):
-    x, y = numpy.mgrid[-size//2 + 1:size//2 + 1, -size//2 + 1:size//2 + 1]
-    g = numpy.exp(-((x**2 + y**2)/(2.0*sigma**2)))
+    x, y = np.mgrid[-size//2 + 1:size//2 + 1, -size//2 + 1:size//2 + 1]
+    g = np.exp(-((x**2 + y**2)/(2.0*sigma**2)))
     return g/g.sum()
 
 def ssim(img1, img2, cs_map=False):
-    """Return the Structural Similarity Map corresponding to input images img1 
-    and img2 (images are assumed to be uint8)
-    
-    This function attempts to mimic precisely the functionality of ssim.m a 
-    MATLAB provided by the author's of SSIM
-    https://ece.uwaterloo.ca/~z70wang/research/ssim/ssim_index.m
-    """
-    img1 = img1.astype(numpy.float32)
-    img2 = img2.astype(numpy.float32)
+    img1 = img1.astype(np.float32)
+    img2 = img2.astype(np.float32)
     size = 11
     sigma = 1.5
     window = fspecial_gauss(size, sigma)

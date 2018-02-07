@@ -72,7 +72,7 @@ def crop_to_shape(data, shape):
 
 def combine_img_prediction(data, gt, pred):
     """
-    Combines the data, grouth thruth and the prediction into one rgb image
+    Combines the data, grouth truth and the prediction into one rgb image
     
     :param data: the data tensor
     :param gt: the ground thruth tensor

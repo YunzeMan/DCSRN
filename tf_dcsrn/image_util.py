@@ -2,10 +2,13 @@
 author: MANYZ
 '''
 from __future__ import print_function, division, absolute_import, unicode_literals
-
+import sys
+sys.path.append("../")
 import glob
 import numpy as np
 from PIL import Image
+from FFT import LRbyFFT
+
 
 class BaseDataProvider(object):
     """
@@ -29,29 +32,23 @@ class BaseDataProvider(object):
         self.a_min = a_min if a_min is not None else -np.inf
         self.a_max = a_max if a_min is not None else np.inf
 
-    def _load_data_and_label(self):
-        data, label = self._next_data()
+    def _load_hrlr_data(self):
+        hr_data = self._next_data()
             
-        train_data = self._process_data(data)
-        labels = self._process_labels(label)
+        hr_data = self._process_data(hr_data)
+        lr_data = self._get_lrdata(hr_data)
         
-        train_data, labels = self._post_process(train_data, labels)
+        hr_data, lr_data = self._post_process(hr_data, lr_data)
         
-        nx = train_data.shape[1]
-        ny = train_data.shape[0]
+        ny = hr_data.shape[0]
+        nx = hr_data.shape[1]
+        nz = hr_data.shape[2]
 
-        return train_data.reshape(1, ny, nx, self.channels), labels.reshape(1, ny, nx, self.n_class),
+        return hr_data.reshape(1, ny, nx, nz, self.channels), lr_data.reshape(1, ny, nx, nz, self.channels),
     
-    def _process_labels(self, label):
-        if self.n_class == 2:
-            nx = label.shape[1]
-            ny = label.shape[0]
-            labels = np.zeros((ny, nx, self.n_class), dtype=np.float32)
-            labels[..., 1] = label
-            labels[..., 0] = ~label
-            return labels
-        
-        return label
+    def _get_lrdata(self, hr_data):
+        lr_data = LRbyFFT.getLR(hr_data)
+        return lr_data
     
     def _process_data(self, data):
         # normalization
@@ -60,70 +57,42 @@ class BaseDataProvider(object):
         data /= np.amax(data)
         return data
     
-    def _post_process(self, data, labels):
+    def _post_process(self, hr_data, lr_data):
         """
         Post processing hook that can be used for data augmentation
         
-        :param data: the data array
-        :param labels: the label array
+        :param hr_data: the high resolution data array
+        :param lr_data: the low resolution label array
         """
-        return data, labels
+        return hr_data, lr_data
     
     def __call__(self, n):
-        train_data, labels = self._load_data_and_label()
-        nx = train_data.shape[1]
-        ny = train_data.shape[2]
+        hr_data, lr_data = self._load_hrlr_data()
+        nx = hr_data.shape[1]
+        ny = hr_data.shape[2]
+        nz = hr_data.shape[3]
     
-        X = np.zeros((n, nx, ny, self.channels))
-        Y = np.zeros((n, nx, ny, self.n_class))
+        X = np.zeros((n, nx, ny, nz, self.channels))
+        Y = np.zeros((n, nx, ny, nz, self.channels))
     
-        X[0] = train_data
-        Y[0] = labels
+        X[0] = hr_data
+        Y[0] = lr_data
         for i in range(1, n):
-            train_data, labels = self._load_data_and_label()
-            X[i] = train_data
-            Y[i] = labels
+            hr_data, lr_data = self._load_hrlr_data()
+            X[i] = hr_data
+            Y[i] = lr_data
     
-        return X, Y
-    
-class SimpleDataProvider(BaseDataProvider):
-    """
-    A simple data provider for numpy arrays. 
-    Assumes that the data and label are numpy array with the dimensions
-    data `[n, X, Y, channels]`, label `[n, X, Y, classes]`. Where
-    `n` is the number of images, `X`, `Y` the size of the image.
-
-    :param data: data numpy array. Shape=[n, X, Y, channels]
-    :param label: label numpy array. Shape=[n, X, Y, classes]
-    :param a_min: (optional) min value used for clipping
-    :param a_max: (optional) max value used for clipping
-    :param channels: (optional) number of channels, default=1
-    :param n_class: (optional) number of classes, default=2
-    
-    """
-    
-    def __init__(self, data, label, a_min=None, a_max=None, channels=1, n_class = 2):
-        super(SimpleDataProvider, self).__init__(a_min, a_max)
-        self.data = data
-        self.label = label
-        self.file_count = data.shape[0]
-        self.n_class = n_class
-        self.channels = channels
-
-    def _next_data(self):
-        idx = np.random.choice(self.file_count)
-        return self.data[idx], self.label[idx]
-
+        return Y, X
 
 class ImageDataProvider(BaseDataProvider):
     """
     Generic data provider for images, supports gray scale and colored images.
     Assumes that the data images and label images are stored in the same folder
     and that the labels have a different file suffix 
-    e.g. 'train/fish_1.tif' and 'train/fish_1_mask.tif'
+    e.g. 'train/1.tif' and 'train/1_mask.tif'
 
     Usage:
-    data_provider = ImageDataProvider("..fishes/train/*.tif")
+    data_provider = ImageDataProvider("../train/*.tif")
         
     :param search_path: a glob search pattern to find all data and label images
     :param a_min: (optional) min value used for clipping
@@ -184,88 +153,46 @@ class ImageDataProvider(BaseDataProvider):
 
 class MedicalImageDataProvider(BaseDataProvider):
     """
-    Generic data provider for images, supports gray scale and colored images.
-    Assumes that the data images and label images are stored in the same folder
-    and that the labels have a different file suffix 
-    e.g. 'train/fish_1.tif' and 'train/fish_1_mask.tif'
+    Generic data provider for high resolution and low resolution images, supports gray scale.
+    Assumes that the high resolution images are stored in the same folder
+    and images are of the same shape
+    e.g. 'HCP_mgh_1035_MR_MPRAGE_GradWarped_and_Defaced_Br_20140919135823853_S227866_I444361_9.npy'
 
     Usage:
-    data_provider = ImageDataProvider("..fishes/train/*.tif")
+    data_provider = MedicalImageDataProvider("../../HCP_NPY_Augment/*.npy")
     
-    :param
-    :param
-    :param search_path: a glob search pattern to find all data and label images
     :param a_min: (optional) min value used for clipping
     :param a_max: (optional) max value used for clipping
-    :param data_suffix: suffix pattern for the data images. Default '.tif'
-    :param mask_suffix: suffix pattern for the label images. Default '_mask.tif'
     :param shuffle_data: if the order of the loaded file path should be randomized. Default 'True'
-    :param channels: (optional) number of channels, default=1
-    :param n_class: (optional) number of classes, default=2
-    
     """
     
-    def __init__(self, a_min=None, a_max=None, shuffle_data=True):
+    def __init__(self, search_path = '../../HCP_NPY_Augment/*.npy', a_min=None, a_max=None, shuffle_data=True):
         super(MedicalImageDataProvider, self).__init__(a_min, a_max)
         self.file_idx = -1
         self.shuffle_data = shuffle_data
-        
-        assert len(self.data_array) > 0, "No training files"
-        print("Number of files used: %s" % len(self.data_array))
-        
-        # img = self._load_file(self.data_files[0])
-        img = self.data_array[0]
-        self.channels = 1 if len(img.shape) == 2 else img.shape[-1]
-        
-    # def _find_data_files(self, search_path):
-    #     all_files = glob.glob(search_path)
-    #     return [name for name in all_files if self.data_suffix in name and not self.mask_suffix in name]
+        self.channels = 1
+
+        self.data_files = self._find_data_files(search_path)
+
+        assert len(self.data_files) > 0, "No training files"
+        print("Number of 3D files used: %s" % len(self.data_files))
+
+    def _find_data_files(self, search_path):
+        all_files = glob.glob(search_path)
+        return [name for name in all_files]
     
-    
-    # def _load_file(self, path, dtype=np.float32):
-    #    return np.array(Image.open(path), dtype)
-    #    # return np.squeeze(cv2.imread(image_name, cv2.IMREAD_GRAYSCALE))
+    def _load_file(self, path, dtype=np.float32):
+       return np.array(np.load(filename), dtype)
 
     def _increment_fileidx(self):
         self.file_idx += 1
         if self.file_idx >= len(self.data_array):
             self.file_idx = 0 
-    #        if self.shuffle_data:
-    #            np.random.shuffle(self.data_files)
+            if self.shuffle_data:
+                np.random.shuffle(self.data_files)
         
     def _next_data(self):
         self._increment_fileidx()
-        # image_name = self.data_files[self.file_idx]
-        # label_name = image_name.replace(self.data_suffix, self.mask_suffix)
-        
-        # img = self._load_file(image_name, np.float32)
-        # label = self._load_file(label_name, np.bool)
-
-        img = np.array(self.data_array[self.file_idx], dtype = np.float32)
-        label = np.array(self.label_array[self.file_idx], dtype = np.bool)
-        bbox = np.array(self.bbox_array[self.file_idx], dtype = np.int32)
-        xmin = bbox[2] - (bbox[3] - bbox[2])//2
-        xmax = bbox[3] + (bbox[3] - bbox[2])//2
-        ymin = bbox[4] - (bbox[5] - bbox[4])//2
-        ymax = bbox[5] + (bbox[5] - bbox[4])//2
-        x_min = xmin if xmin >= 0 else 0
-        x_max = xmax if xmax <= img.shape[1] else img.shape[1]
-        y_min = ymin if ymin >= 0 else 0
-        y_max = ymax if ymax <= img.shape[0] else img.shape[0]
-        width = x_max - x_min
-        height = y_max - y_min
-        if width > height:
-            y_min = y_min - (width - height)
-        else:
-            x_min = x_min - (height - width)
-        print ("========================================")
-        print (x_min)
-        print (x_max)
-        print (y_min)
-        print (y_max)
-
-        # 权宜之计，要删除的
-        # label = np.array(self.data_array[self.file_idx], dtype = np.bool)
-        # print("The shape of data is " + str(img.shape)
-        # print("The shape of label is " + str(label.shape))
-        return img[int(y_min):int(y_max), int(x_min):int(x_max)], label[int(y_min):int(y_max), int(x_min):int(x_max)]
+        image_name = self.data_files[self.file_idx]
+        img = self._load_file(image_name, np.float32)
+        return img

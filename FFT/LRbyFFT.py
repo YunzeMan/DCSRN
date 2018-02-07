@@ -19,6 +19,19 @@ def get_all_images():
 # Get all images from the NPY files
 images = get_all_images()
 
+def getLR(hr_data):
+    imgfft = np.fft.fftn(hr_data)
+    x_center = imgfft.shape[0] // 2
+    y_center = imgfft.shape[1] // 2
+    z_center = imgfft.shape[2] // 2
+    imgfft[x_center-20 : x_center+20, y_center-20 : y_center+20, z_center-20 : z_center+20] = 0
+    imgifft = np.fft.ifftn(imgfft)
+    img_out = abs(imgifft)
+    print(str(img_out.shape))
+
+    return img
+
+'''  
 # TODO Figure out how to perform FFT in python
 for image in images:
     image -= np.amin(image)
@@ -54,3 +67,4 @@ for image in images:
 # ...
 # TODO perform iFFT and get the LR images
 # ...
+'''
