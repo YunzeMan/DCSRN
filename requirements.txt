@@ -1,0 +1,7 @@
+numpy
+nibabel
+shutil
+logging
+Pillow
+matplotlib
+tensorflow>=1.4.0
