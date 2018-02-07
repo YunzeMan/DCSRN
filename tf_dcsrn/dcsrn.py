@@ -2,7 +2,8 @@
 author: MANYZ
 '''
 from __future__ import print_function, division, absolute_import, unicode_literals
-
+import sys
+sys.path.append('../')
 import os
 import shutil
 import numpy as np
@@ -10,10 +11,8 @@ from collections import OrderedDict
 import logging
 
 import tensorflow as tf
-import util
-from layers import (weight_variable, weight_variable_devonc, conv3d, pixel_wise_softmax_2, cross_entropy)
-import sys
-sys.path.append('../')
+from tf_dcsrn import util
+from tf_dcsrn.layers import (weight_variable, conv3d, pixel_wise_softmax_2)
 from ssim import tf_SSIM
 
 def create_conv_net(x, channels=1, layers=4, growth_rate=24, filter_size=3, summaries=True):
@@ -59,7 +58,8 @@ def create_conv_net(x, channels=1, layers=4, growth_rate=24, filter_size=3, summ
             in_node = tf.concat([in_node, conv], 4)
         
         # Batch Normalization layer
-        bn = tf.layers.batch_normalization(in_node, 0)
+        # in_node = tf.reshape(in_node, [-1, 64, 64, 64, in_features])
+        bn = tf.contrib.layers.batch_norm(in_node, 0)
         # ELU layer
         elu = tf.nn.elu(bn)
         # 3D conv layer
@@ -100,17 +100,24 @@ class DCSRN(object):
         self.y = tf.placeholder("float", shape=[None, None, None, None, channels])
         self.logits, self.variables = create_conv_net(self.x, channels = channels)
         
-        instance_number = self.logits.get_shape()[0] * self.logits.get_shape()[1] * self.logits.get_shape()[2] * self.logits.get_shape()[3]
+        instance_number = tf.shape(self.logits)[0] * tf.shape(self.logits)[1] * tf.shape(self.logits)[2] * tf.shape(self.logits)[3]
+        instance_number = tf.cast(instance_number, tf.float32)
         # L2 loss (Mean squared error)
         self.cost = tf.reduce_sum(tf.pow(self.logits - self.y, 2)) / instance_number
                 
-        self.mean_ssim = 0
-        batch_size = self.logits.get_shape()[0]
-        slice_number = self.logits.get_shape()[1]
+        
+        logits2D = tf.reshape(self.logits, [1, 64, -1, 1])
+        HR2D = tf.reshape(self.y, [1, 64, -1, 1])
+        self.mean_ssim =  self._get_ssim(logits2D, HR2D)
+
+        '''        
+        batch_size = tf.shape(self.logits)[0]
+        slice_number = tf.shape(self.logits)[1]
         num = batch_size * slice_number
         for i in range(0, batch_size):
             for j in range(0, slice_number):
                 self.mean_ssim += self._get_ssim(self.logits[i, j:j+1, :, :, :], self.y[i, j:j+1, :, :, :]) / num
+        '''
         
     def _get_ssim(self, result, hr_image):
         """
@@ -142,7 +149,7 @@ class DCSRN(object):
             y_dummy = np.empty((x_test.shape[0], x_test.shape[1], x_test.shape[2], x_test.shape[3], self.channels))
             result_image = sess.run(self.logits, feed_dict={self.x: x_test, self.y: y_dummy})
             
-        return prediction
+        return result_image
 
     def save(self, sess, model_path):
         """
@@ -249,8 +256,8 @@ class Trainer(object):
             return save_path
         
         init = self._initialize(training_iters, output_path, restore, prediction_path)
-        
-        with tf.Session() as sess:
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
+        with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
             if write_graph:
                 tf.train.write_graph(sess.graph_def, output_path, "graph.pb", False)
             
@@ -294,7 +301,7 @@ class Trainer(object):
         loss, ssim = sess.run((self.net.cost, self.net.mean_ssim), feed_dict={self.net.x: batch_x, 
                                                                                 self.net.y: batch_y})
         logging.info("\n***********Begin testing**************\n")                                                                                
-        logging.info("Testing data: Average L2 loss: {:.4f}, Average SSIM: {:.4f}, learning rate: {:.4f}".format(loss, ssim, lr))
+        logging.info("Testing data: Average L2 loss: {:.4f}, Average SSIM: {:.4f}".format(loss, ssim))
         
         logging.info("\n**************************************\n")                     
 

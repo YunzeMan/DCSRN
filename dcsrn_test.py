@@ -7,13 +7,11 @@ import logging
 
 import tensorflow as tf
 
-from tf_dcsrn import dcsrn, util, image_util
-from data_util.parse_annotations import *
-from data_util.image_helper import *
+from tf_dcsrn import dcsrn, image_util
 
 output_path = "./snapshots/"
 # path of dataset, here is the HCP dataset
-dataset_NIH = "/home/mk/Data/HCP_NPY_Augment/"
+dataset_HCP = "/home/mk/Data/HCP_NPY_Augment/"
 
 #preparing data loading, you may want to explicitly note the glob search path on you data 
 data_provider = image_util.MedicalImageDataProvider()

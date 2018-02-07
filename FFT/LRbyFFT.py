@@ -4,7 +4,6 @@ import glob
 from PIL import Image
 import sys
 sys.path.append('../')
-from SSIM import ssim
   
 def get_all_images():
     filepaths = glob.glob('../../HCP_NPY/*.npy')
@@ -27,9 +26,9 @@ def getLR(hr_data):
     imgfft[x_center-20 : x_center+20, y_center-20 : y_center+20, z_center-20 : z_center+20] = 0
     imgifft = np.fft.ifftn(imgfft)
     img_out = abs(imgifft)
-    print(str(img_out.shape))
+    # print(str(img_out.shape))
 
-    return img
+    return img_out
 
 '''  
 # TODO Figure out how to perform FFT in python

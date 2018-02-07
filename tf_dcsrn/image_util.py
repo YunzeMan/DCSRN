@@ -166,7 +166,7 @@ class MedicalImageDataProvider(BaseDataProvider):
     :param shuffle_data: if the order of the loaded file path should be randomized. Default 'True'
     """
     
-    def __init__(self, search_path = '../../HCP_NPY_Augment/*.npy', a_min=None, a_max=None, shuffle_data=True):
+    def __init__(self, search_path = '../HCP_NPY_Augment/*.npy', a_min=None, a_max=None, shuffle_data=True):
         super(MedicalImageDataProvider, self).__init__(a_min, a_max)
         self.file_idx = -1
         self.shuffle_data = shuffle_data
@@ -182,11 +182,11 @@ class MedicalImageDataProvider(BaseDataProvider):
         return [name for name in all_files]
     
     def _load_file(self, path, dtype=np.float32):
-       return np.array(np.load(filename), dtype)
+       return np.array(np.load(path), dtype)
 
     def _increment_fileidx(self):
         self.file_idx += 1
-        if self.file_idx >= len(self.data_array):
+        if self.file_idx >= len(self.data_files):
             self.file_idx = 0 
             if self.shuffle_data:
                 np.random.shuffle(self.data_files)
@@ -195,4 +195,9 @@ class MedicalImageDataProvider(BaseDataProvider):
         self._increment_fileidx()
         image_name = self.data_files[self.file_idx]
         img = self._load_file(image_name, np.float32)
+        while np.amax(img) <= 0:
+            self._increment_fileidx()
+            image_name = self.data_files[self.file_idx]
+            img = self._load_file(image_name, np.float32)
+
         return img
