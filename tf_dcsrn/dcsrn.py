@@ -15,6 +15,8 @@ from tf_dcsrn import util
 from tf_dcsrn.layers import (weight_variable, conv3d, pixel_wise_softmax_2)
 from ssim import tf_SSIM
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
+
 def create_conv_net(x, channels=1, layers=4, growth_rate=24, filter_size=3, summaries=True):
     """
     Creates a new convolutional dcsrn for the given parametrization.
@@ -262,14 +264,14 @@ class Trainer(object):
                 tf.train.write_graph(sess.graph_def, output_path, "graph.pb", False)
             
             sess.run(init)
-            
+            logging.info("Init graph over")
             if restore:
                 ckpt = tf.train.get_checkpoint_state(output_path)
                 if ckpt and ckpt.model_checkpoint_path:
                     self.net.restore(sess, ckpt.model_checkpoint_path)
-            
+            logging.info("Begin to fetch test data")
             test_x, test_y = data_provider(self.verification_batch_size)
-
+            logging.info("Test data fetch over")
             self.store_prediction(sess, test_x, test_y, "_init")
             
             summary_writer = tf.summary.FileWriter(output_path, graph=sess.graph)

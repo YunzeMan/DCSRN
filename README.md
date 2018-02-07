@@ -17,6 +17,7 @@ This is an implementation of [Brain MRI Super Resolution Using 3D Deep Densely C
             - [3.1 Data preparation](#31-data-preparation)
                     - [3.1.1 Download HCP data from http://www.humanconnectomeproject.org/data/](#311-download-hcp-data-from-httpwwwhumanconnectomeprojectorgdata)
                     - [3.1.2 Use code to transform NII data into NPY format](#312-use-code-to-transform-nii-data-into-npy-format)
+                    - [3.1.3 Do data Augmentation](#313-do-data-augmentation)
 
 ## 1. Introduction
 
@@ -54,3 +55,14 @@ Anaconda is recommended to create an environment for the project to run with.
     Put nii2npy.py under $HCP and run: 
         python nii2npy.py
     You are suppose to get HCP_NPY/ in the same dir with $HCP
+
+###### 3.1.3 Do data Augmentation
+    Put data_augment.py under $HCP and run:
+        python data_augment.py
+    You are suppose to get HCP_NPY_Augment/ in the same dir with $HCP
+This data augmentation process generates 100 64x64x64 volumes from each subject's 3D MRI. According to the paper, the patches are generated randomly in the image.
+
+####3.2 Run the code
+    cd to DCSRN/ and run:
+        python dcsrn_test.py
+    snapshots will be saved at /DCSRN/snapshots/

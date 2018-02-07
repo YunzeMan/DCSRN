@@ -16,9 +16,17 @@ dataset_HCP = "/home/mk/Data/HCP_NPY_Augment/"
 #preparing data loading, you may want to explicitly note the glob search path on you data 
 data_provider = image_util.MedicalImageDataProvider()
 
+print("\ndata_provider initialization over.\n")
+
 # setup & training
 net = dcsrn.DCSRN(channels=1)
+
+print("\nGraph set over.\n")
+
 trainer = dcsrn.Trainer(net)
+
+print("\nBegin to train.\n")
+
 path = trainer.train(data_provider, output_path)
 
 print("\nTraining process is over.\n")

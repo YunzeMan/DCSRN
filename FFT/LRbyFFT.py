@@ -26,7 +26,6 @@ def getLR(hr_data):
     imgfft[x_center-20 : x_center+20, y_center-20 : y_center+20, z_center-20 : z_center+20] = 0
     imgifft = np.fft.ifftn(imgfft)
     img_out = abs(imgifft)
-    # print(str(img_out.shape))
 
     return img_out
 
