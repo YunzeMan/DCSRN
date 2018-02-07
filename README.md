@@ -9,7 +9,6 @@ This is an implementation of [Brain MRI Super Resolution Using 3D Deep Densely C
             - [2.1 Prerequisites](#21-prerequisites)
                     - [2.1.1 Please make sure that your machine is equipped with modern GPUs that support CUDA.](#211-please-make-sure-that-your-machine-is-equipped-with-modern-gpus-that-support-cuda)
                     - [2.1.2 Please make sure that python (3.6 is recommended) is installed](#212-please-make-sure-that-python-36-is-recommended-is-installed)
-                    - [2.1.3 Anaconda3 is recommended.](#213-anaconda3-is-recommended)
             - [2.2 Requirements](#22-requirements)
                     - [2.2.1 Please refer to `requirements.txt`](#221-please-refer-to-requirementstxt)
                     - [2.2.2 Please install new version of tensorflow](#222-please-install-new-version-of-tensorflow)
@@ -18,9 +17,13 @@ This is an implementation of [Brain MRI Super Resolution Using 3D Deep Densely C
                     - [3.1.1 Download HCP data from http://www.humanconnectomeproject.org/data/](#311-download-hcp-data-from-httpwwwhumanconnectomeprojectorgdata)
                     - [3.1.2 Use code to transform NII data into NPY format](#312-use-code-to-transform-nii-data-into-npy-format)
                     - [3.1.3 Do data Augmentation](#313-do-data-augmentation)
+            - [3.2 Run the code](#32-run-the-code)
+    - [4. Visualization](#4-visualization)
+    - [5. Contact Information](#5-contact-information)
 
 ## 1. Introduction
 
+![Imgur](https://imgur.com/ECl1t1T.png)
 This repo DCSRN is a code package of paper [Brain MRI Super Resolution Using 3D Deep Densely Connected Neural Networks](https://arxiv.org/pdf/1801.02728.pdf) The paper propose a 3D Densely Connected Super-Resolution Networks (DCSRN), derived from [Densely connected convolutional networks](https://arxiv.org/pdf/1608.06993.pdf). After trainning on the public dataset HCP, this method achieves a better performance in terms of **SSIM**, **PSNR** and **NRMSE**. So far, the implementation only support SSIM performance.
 
 ## 2. Installation
@@ -29,7 +32,7 @@ This repo DCSRN is a code package of paper [Brain MRI Super Resolution Using 3D 
     Modern GPU allow training and testing phases to execute 50x times faster or more.
 ###### 2.1.2 Please make sure that python (3.6 is recommended) is installed 
     Insufficient compatibility guaranteed for Python 2
-###### 2.1.3 Anaconda3 is recommended.
+**Anaconda3 is recommended.**
 
 #### 2.2 Requirements
 ###### 2.2.1 Please refer to `requirements.txt`
@@ -62,7 +65,20 @@ Anaconda is recommended to create an environment for the project to run with.
     You are suppose to get HCP_NPY_Augment/ in the same dir with $HCP
 This data augmentation process generates 100 64x64x64 volumes from each subject's 3D MRI. According to the paper, the patches are generated randomly in the image.
 
-####3.2 Run the code
+#### 3.2 Run the code
     cd to DCSRN/ and run:
         python dcsrn_test.py
     snapshots will be saved at /DCSRN/snapshots/
+
+## 4. Visualization
+Original Slice:
+![Imgur](https://i.imgur.com/fN6vaN2.png)
+After FFT:
+![Imgur](https://imgur.com/AWn6gGA.png)
+
+## 5. Contact Information
+
+If you encounter any problems in using these codes, please open an issue in this repository.
+You may also contact Yunze MAN (yunze.man97@gmail.com).
+
+Thanks for your interest! Have fun!
