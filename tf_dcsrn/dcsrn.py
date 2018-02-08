@@ -97,6 +97,7 @@ class DCSRN(object):
         tf.reset_default_graph()
         
         self.summaries = kwargs.get("summaries", True)
+        self.channels = channels
         # x is LR image, y is HR image
         self.x = tf.placeholder("float", shape=[None, None, None, None, channels])
         self.y = tf.placeholder("float", shape=[None, None, None, None, channels])
