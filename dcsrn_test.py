@@ -27,7 +27,7 @@ trainer = dcsrn.Trainer(net)
 
 print("\nBegin to train.\n")
 
-path = trainer.train(data_provider, output_path)
+path = trainer.train(data_provider, output_path, restore = True)
 
 print("\nTraining process is over.\n")
 

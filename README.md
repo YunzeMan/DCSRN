@@ -6,11 +6,11 @@ This is an implementation of [Brain MRI Super Resolution Using 3D Deep Densely C
 - [DCSRN-Tensorflow](#dcsrn-tensorflow)
     - [1. Introduction](#1-introduction)
     - [2. Installation](#2-installation)
-        + [2.1 Prerequisites](#21-prerequisites)
-        + [2.2 Requirements](#22-requirements)
+        - [2.1 Prerequisites](#21-prerequisites)
+        - [2.2 Requirements](#22-requirements)
     - [3. Usage](#3-usage)
-        + [3.1 Data preparation](#31-data-preparation)
-        + [3.2 Run the code](#32-run-the-code)
+        - [3.1 Data preparation](#31-data-preparation)
+        - [3.2 Run the code](#32-run-the-code)
     - [4. Visualization](#4-visualization)
     - [5. Contact Information](#5-contact-information)
 
@@ -18,6 +18,7 @@ This is an implementation of [Brain MRI Super Resolution Using 3D Deep Densely C
 
 ![Imgur](https://imgur.com/ECl1t1T.png)
 This repo DCSRN is a code package of paper [Brain MRI Super Resolution Using 3D Deep Densely Connected Neural Networks](https://arxiv.org/pdf/1801.02728.pdf) The paper propose a 3D Densely Connected Super-Resolution Networks (DCSRN), derived from [Densely connected convolutional networks](https://arxiv.org/pdf/1608.06993.pdf). After trainning on the public dataset HCP, this method achieves a better performance in terms of **SSIM**, **PSNR** and **NRMSE**. So far, the implementation only support SSIM performance.
+The encapsulation structure of this project follows [tf-unet](https://github.com/jakeret/tf_unet), which is well designed and easy to understand. 
 
 ## 2. Installation
 #### 2.1 Prerequisites
