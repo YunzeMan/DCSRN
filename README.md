@@ -6,13 +6,21 @@ This is an implementation of [Brain MRI Super Resolution Using 3D Deep Densely C
 - [DCSRN-Tensorflow](#dcsrn-tensorflow)
     - [1. Introduction](#1-introduction)
     - [2. Installation](#2-installation)
-        - [2.1 Prerequisites](#21-prerequisites)
-        - [2.2 Requirements](#22-requirements)
+            - [2.1 Prerequisites](#21-prerequisites)
+                    - [2.1.1 Please make sure that your machine is equipped with modern GPUs that support CUDA.](#211-please-make-sure-that-your-machine-is-equipped-with-modern-gpus-that-support-cuda)
+                    - [2.1.2 Please make sure that python (3.6 is recommended) is installed](#212-please-make-sure-that-python-36-is-recommended-is-installed)
+            - [2.2 Requirements](#22-requirements)
+                    - [2.2.1 Please refer to `requirements.txt`](#221-please-refer-to-requirementstxt)
+                    - [2.2.2 Please install new version of tensorflow](#222-please-install-new-version-of-tensorflow)
     - [3. Usage](#3-usage)
-        - [3.1 Data preparation](#31-data-preparation)
-        - [3.2 Run the code](#32-run-the-code)
+            - [3.1 Data preparation](#31-data-preparation)
+                    - [3.1.1 Download HCP data from http://www.humanconnectomeproject.org/data/](#311-download-hcp-data-from-httpwwwhumanconnectomeprojectorgdata)
+                    - [3.1.2 Use code to transform NII data into NPY format](#312-use-code-to-transform-nii-data-into-npy-format)
+                    - [3.1.3 Do data Augmentation](#313-do-data-augmentation)
+            - [3.2 Run the code](#32-run-the-code)
     - [4. Visualization](#4-visualization)
-    - [5. Contact Information](#5-contact-information)
+    - [5. Questions on paper](#5-questions-on-paper)
+    - [6. Contact Information](#6-contact-information)
 
 ## 1. Introduction
 
@@ -73,7 +81,11 @@ This data augmentation process generates 100 64x64x64 volumes from each subject'
 
 ![Imgur](https://imgur.com/AWn6gGA.png)
 
-## 5. Contact Information
+## 5. Questions on paper
+1. The paper use a low-pass filtering-like method to generate low resolution images, the method meet with the nature of MRI, which makes it valid, but paper also mentions that this method avoid checkerboard artifact. However, I think since DenseNet does not involve deconvolution process, there is nothing to do with checkerboard artifact in this process. Not sure if I'm right.
+2. The second question is about the graph in the paper. The bypass-like links don't concat before bn+elu+conv units, but concat after them. This is not consistent with the original DenseNet, I don't see why paper use this way of connection. I view it as a minor typo and my implementation follows the DenseNet's way of connection.  
+
+## 6. Contact Information
 
 If you encounter any problems in using these codes, please open an issue in this repository.
 You may also contact Yunze MAN (yunze.man97@gmail.com).
